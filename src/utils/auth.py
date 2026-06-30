@@ -3,9 +3,9 @@ import msal
 import requests
 from dotenv import load_dotenv
 
-from src._errors.configuration_error import ConfigurationError
-from src._errors.authentication_error import AuthenticationError
-from src._errors.graph_api_error import GraphApiError
+from _errors.configuration_error import ConfigurationError
+from _errors.authentication_error import AuthenticationError
+from _errors.graph_api_error import GraphApiError
 
 GRAPH_BASE_URL  = 'https://graph.microsoft.com/v1.0'
 GRAPH_SCOPE     = ['https://graph.microsoft.com/.default']

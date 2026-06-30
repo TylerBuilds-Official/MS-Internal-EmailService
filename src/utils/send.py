@@ -1,7 +1,7 @@
 import requests
 
-from src.utils.auth import Auth
-from src._errors.email_send_error import EmailSendError
+from utils.auth import Auth
+from _errors.email_send_error import EmailSendError
 
 GRAPH_BASE_URL  = 'https://graph.microsoft.com/v1.0'
 REQUEST_TIMEOUT = 30

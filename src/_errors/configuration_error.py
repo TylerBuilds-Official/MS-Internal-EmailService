@@ -1,4 +1,4 @@
-from src._errors.email_service_error import EmailServiceError
+from _errors.email_service_error import EmailServiceError
 
 
 class ConfigurationError(EmailServiceError):

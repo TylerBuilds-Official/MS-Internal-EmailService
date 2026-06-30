@@ -1,10 +1,10 @@
 import os
 
-from src.utils.auth import Auth
-from src.utils.compose import compose
-from src.utils.send import send_email
-from src.utils.validate import Validator
-from src._errors.invalid_recipient_error import InvalidRecipientError
+from utils.auth import Auth
+from utils.compose import compose
+from utils.send import send_email
+from utils.validate import Validator
+from _errors.invalid_recipient_error import InvalidRecipientError
 
 
 class EmailService:
@@ -15,12 +15,13 @@ class EmailService:
         self.validator = Validator(self.auth)
 
 
-    def send_email(self, to: str, subject: str, body: str, **kwargs) -> None:
+    def send_email(self, to: str | list[str], subject: str, body: str, **kwargs) -> None:
         """Validate all recipients, then send the message; raises on validation or send failure."""
 
-        to      = to.lower()
-        payload = compose(to, subject, body, **kwargs)
-        result  = self.validator.validate(payload)
+        recipients = [to] if isinstance(to, str) else list(to)
+        recipients = [address.lower() for address in recipients]
+        payload    = compose(recipients, subject, body, **kwargs)
+        result     = self.validator.validate(payload)
 
         if not result['recipient_ok']:
             company = os.getenv('COMPANY_NAME', 'the organization')

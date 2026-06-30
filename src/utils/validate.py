@@ -1,4 +1,4 @@
-from src.utils.auth import Auth
+from utils.auth import Auth
 
 
 class Validator:

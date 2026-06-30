@@ -1,4 +1,4 @@
-from src._errors.graph_api_error import GraphApiError
+from _errors.graph_api_error import GraphApiError
 
 
 class EmailSendError(GraphApiError):
