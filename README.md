@@ -128,3 +128,7 @@ except InvalidRecipientError as e:
 except EmailServiceError as e:
     print(f"Send failed: {e}")
 ```
+
+## License
+
+Released under the [MIT License](LICENSE).
