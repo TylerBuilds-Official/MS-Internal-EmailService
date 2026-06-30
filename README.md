@@ -16,6 +16,7 @@ required.
   tenant directory before sending
 - `cc`, `bcc`, and file attachments
 - Clear, typed exceptions for configuration, auth, Graph, and send failures
+- Use it as a Python library **or** run the bundled FastAPI service (API-key-protected `POST /send`, public `/health`)
 
 ## Prerequisites
 
@@ -54,13 +55,18 @@ cp .env.example .env
 | `CLIENT_SECRET`   | A client secret for the app registration                           |
 | `SERVICE_USER_ID` | Object ID of the mailbox mail is sent *from* (use a service account) |
 | `COMPANY_NAME`    | Org display name, shown in recipient-rejection messages            |
+| `API_KEY`         | Shared secret required in the `X-API-Key` header (HTTP API only)   |
+| `CORS_ORIGINS`    | Comma-separated allowed CORS origins (HTTP API only; default `*`)  |
 
 `.env` is gitignored — never commit real secrets.
 
-## Usage
+## Usage (as a library)
+
+The package root is `src/`, so add it to your `PYTHONPATH` (or import from within
+`src/`).
 
 ```python
-from src.email_service.email_service import EmailService
+from email_service.email_service import EmailService
 
 es = EmailService()
 
@@ -116,9 +122,8 @@ everything from the library with a single `except`, or handle specific failures:
 | `InvalidRecipientError`| A recipient is not an internal directory user                  |
 
 ```python
-from src.email_service.email_service import EmailService
-from src._errors.invalid_recipient_error import InvalidRecipientError
-from src._errors.email_service_error import EmailServiceError
+from email_service.email_service import EmailService
+from _errors import EmailServiceError, InvalidRecipientError
 
 es = EmailService()
 try:
@@ -128,6 +133,52 @@ except InvalidRecipientError as e:
 except EmailServiceError as e:
     print(f"Send failed: {e}")
 ```
+
+## HTTP API
+
+The repo also ships a thin FastAPI service that wraps the library. The package root
+is `src/`, so run it with `--app-dir src`:
+
+```bash
+uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
+# add --reload for local development
+```
+
+| Method & path | Auth | Description |
+| ------------- | ---- | ----------- |
+| `GET /health` | none | Liveness probe → `{"status": "ok"}` |
+| `POST /send`  | `X-API-Key` header | Send an internal email (`multipart/form-data`) |
+
+`POST /send` takes `multipart/form-data`. Repeat `to` / `cc` / `bcc` to add multiple
+recipients, and attach files as repeated `files` parts:
+
+```bash
+curl -X POST http://localhost:8000/send \
+  -H "X-API-Key: $API_KEY" \
+  -F "to=person@yourcompany.com" \
+  -F "to=lead@yourcompany.com" \
+  -F "subject=Nightly report" \
+  -F "body=See attached." \
+  -F "body_type=Text" \
+  -F "files=@report.pdf"
+```
+
+Responses: `200` `{"status":"sent","recipients":[...]}` on success; `400` for a
+non-internal recipient; `401` for a bad/missing API key; `422` for a malformed
+request; `502` for an upstream Microsoft Graph / auth failure.
+
+Interactive docs are at `/docs` once the server is running.
+
+### Deploying
+
+This endpoint can send mail as your whole org, so before exposing it:
+
+- Set a **strong, random `API_KEY`** (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+- Set **`CORS_ORIGINS`** to your real front-end origins — the `*` default is wide open.
+- Point **`SERVICE_USER_ID`** at a dedicated service mailbox, not a personal account.
+- Terminate **TLS** at a reverse proxy in front of the app (uvicorn isn't your edge).
+- Optionally disable the docs in production by passing `docs_url=None, redoc_url=None`
+  to `FastAPI(...)` in `build_api.py`.
 
 ## License
 
