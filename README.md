@@ -5,7 +5,7 @@ through the [Microsoft Graph API](https://learn.microsoft.com/graph/api/user-sen
 using app-only authentication, and **restricts recipients to users in your tenant's
 directory** so internal apps can't accidentally email the outside world.
 
-Point it at any tenant with a handful of environment variables — no code changes
+Point it at any tenant with a handful of environment variables, no code changes
 required.
 
 ## Features
@@ -58,7 +58,7 @@ cp .env.example .env
 | `API_KEY`         | Shared secret required in the `X-API-Key` header (HTTP API only)   |
 | `CORS_ORIGINS`    | Comma-separated allowed CORS origins (HTTP API only; default `*`)  |
 
-`.env` is gitignored — never commit real secrets.
+`.env` is gitignored; never commit real secrets.
 
 ## Usage (as a library)
 
@@ -174,7 +174,7 @@ Interactive docs are at `/docs` once the server is running.
 This endpoint can send mail as your whole org, so before exposing it:
 
 - Set a **strong, random `API_KEY`** (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
-- Set **`CORS_ORIGINS`** to your real front-end origins — the `*` default is wide open.
+- Set **`CORS_ORIGINS`** to your real front-end origins; the `*` default is wide open.
 - Point **`SERVICE_USER_ID`** at a dedicated service mailbox, not a personal account.
 - Terminate **TLS** at a reverse proxy in front of the app (uvicorn isn't your edge).
 - Optionally disable the docs in production by passing `docs_url=None, redoc_url=None`
