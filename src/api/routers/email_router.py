@@ -13,6 +13,7 @@ FastAPI runs it in its threadpool and the event loop stays responsive.
 """
 import base64
 import logging
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -43,10 +44,14 @@ def send(
         bcc:       list[str] | None        = Form(default=None, description="BCC address; repeat to add more"),
         body_type: Literal["Text", "HTML"] = Form(default="Text", description="Message body content type"),
         files:     list[UploadFile]        = File(default=[], description="Optional file attachments"),
+        inline:    list[str] | None        = Form(default=None, description=(
+            "Filename(s) among `files` to embed inline instead of attaching; reference "
+            "them in an HTML body as cid:<filename stem> (logo.png -> cid:logo)")),
         service:   EmailService            = Depends(get_email_service) ) -> SendEmailResponse:
     """Send an internal email. All recipients must be tenant directory users."""
 
-    attachments = [_to_graph_attachment(upload) for upload in files]
+    inline_names = set(inline or [])
+    attachments  = [_to_graph_attachment(upload, inline_names) for upload in files]
 
     try:
         service.send_email(
@@ -70,14 +75,23 @@ def send(
     return SendEmailResponse(status="sent", recipients=to + (cc or []) + (bcc or []))
 
 
-def _to_graph_attachment(upload: UploadFile) -> dict:
-    """Read an uploaded file into a base64-encoded Graph fileAttachment object."""
+def _to_graph_attachment(upload: UploadFile, inline_names: set[str]) -> dict:
+    """Read an uploaded file into a base64-encoded Graph fileAttachment object.
 
-    content = upload.file.read()
+    Files named in `inline_names` become inline attachments: hidden from the
+    attachment list and addressable from the HTML body via cid:<filename stem>.
+    """
 
-    return {
+    content    = upload.file.read()
+    attachment = {
         "@odata.type":  "#microsoft.graph.fileAttachment",
         "name":         upload.filename,
         "contentType":  upload.content_type or "application/octet-stream",
         "contentBytes": base64.b64encode(content).decode("utf-8"),
     }
+
+    if upload.filename in inline_names:
+        attachment["isInline"]  = True
+        attachment["contentId"] = Path(upload.filename).stem
+
+    return attachment
