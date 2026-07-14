@@ -19,7 +19,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from api._dependencies import get_email_service, require_api_key
-from api._models       import SendEmailResponse
+from api._models       import CreateEventRequest, CreateEventResponse, SendEmailResponse
 from email_service.email_service import EmailService
 from _errors import (
     AuthenticationError,
@@ -73,6 +73,41 @@ def send(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
 
     return SendEmailResponse(status="sent", recipients=to + (cc or []) + (bcc or []))
+
+
+@router.post("/create-event", response_model=CreateEventResponse)
+def create_event(
+        request: CreateEventRequest,
+        service: EmailService = Depends(get_email_service) ) -> CreateEventResponse:
+    """Create a calendar event with invites (a Teams meeting when online_meeting).
+
+    Attendees must be tenant directory users — the same internal-only rule as
+    /send. Requires APPLICATION Calendars.ReadWrite on the app registration;
+    the event lands on the service sender's calendar as organizer.
+    """
+
+    try:
+        service.create_event(
+            subject          = request.subject,
+            start_iso        = request.start,
+            attendees        = request.attendees,
+            body             = request.body,
+            duration_minutes = request.duration_minutes,
+            online_meeting   = request.online_meeting,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Invalid start datetime: {e}") from e
+    except InvalidRecipientError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except ConfigurationError as e:
+        logger.error(f"Email service misconfigured: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+    except (AuthenticationError, GraphApiError) as e:
+        logger.error(f"Upstream Microsoft Graph failure: {e}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
+
+    return CreateEventResponse(status="created", attendees=request.attendees)
 
 
 def _to_graph_attachment(upload: UploadFile, inline_names: set[str]) -> dict:
